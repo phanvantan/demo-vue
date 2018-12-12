@@ -1,28 +1,137 @@
 <template>
   <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
+    <navbar></navbar>
+    <div>
+      <h1>All User</h1>
+      <form @submit.prevent="createUser" >
+        <div class="form-group">
+          <input
+            v-model="new_user.name"
+            type="text"
+            placeholder="name"
+            v-validate="'required|min:5|max:100|regex:^[^!@#$%^&*()+/]+$'"
+            name="name"
+            :class="{'is-invalid': submitted && errors.has('name')}"
+          />
+          <div
+            v-if="submitted && errors.has('name')"
+            class="invalid-feedback"
+            v-text="errors.first('name')"
+          />
+        </div>
+        <div class="form-group">
+          <input
+            v-model="new_user.email"
+            placeholder="email"
+            type="email"
+            name="email"
+            v-validate="'required|email'"
+            :class="{'is-invalid': submitted && errors.has('email')}"
+          />
+        </div>
+        <div
+          v-if="submitted && errors.has('email')"
+          class="invalid-feedback"
+          v-text="errors.first('email')"
+        />
+        <input type="submit">
+      </form>
+      <table class="responsive-table">
+        <thead>
+           <tr>
+             <th>Name</th>
+             <th>Email</th>
+             <th>Actived</th>
+           </tr>
+         </thead>
+         <tbody>
+           <user
+             v-for="user in unactivedUser"
+             :key="user.id" :user="user"
+             @toggleActived="updateUser"
+             @deleteUser="destroyUser"
+           />
+         </tbody>
+         <tbody>
+           <user
+             v-for="user in activedUser"
+             :key="user.id" :user="user"
+             @toggleActived="updateUser"
+             @deleteUser="destroyUser"
+           />
+         </tbody>
+       </table>
+     </div>
   </div>
 </template>
-
 <script>
-import HelloWorld from './components/HelloWorld.vue'
-
-export default {
-  name: 'app',
-  components: {
-    HelloWorld
+  import axios from 'axios'
+  import Vue from 'vue'
+  import VueMaterial from 'vue-material'
+  import 'vue-material/dist/vue-material.min.css'
+  import Navbar from './components/navbar.vue'
+  import User from './components/user.vue'
+  import VeeValidate from 'vee-validate';
+  Vue.use(VueMaterial)
+  Vue.use(VeeValidate)
+  export default {
+    data (){
+      return {
+        users: [],
+        new_user: {
+          name: '',
+          email: '',
+          avtived: false
+        },
+        submitted: false
+      }
+    },
+    components: { Navbar, User },
+    mounted: function (){
+      this.fetchUsers()
+    },
+    computed: {
+      unactivedUser: function (){
+        return this.users.filter(user => !user.actived)
+      },
+      activedUser: function (){
+        return this.users.filter(user => user.actived)
+      }
+    },
+    methods: {
+      fetchUsers: function () {
+        axios.get('http://localhost:5000/api/users/').then(
+          response => {
+            this.users = response.data.users
+          },
+          error => alert(error))
+        },
+      updateUser: function ({user, value}) {
+        const data = {
+          user: { actived: value }
+        }
+        axios.put(`http://localhost:5000/api/users/${user.id}`, data).then(
+        response => {
+          const index = this.users.indexOf(user)
+          this.users.splice(index, 1, response.data.user)
+        },
+        error => alert(error))
+      },
+      createUser: function (){
+        this.submitted = true;
+        this.$validator.validate().then(valid => {
+          if (valid) {
+            axios.post('http://localhost:5000/api/users', this.new_user),
+            error => alert(error)
+            this.users.push(this.new_user)
+          }
+        })
+      },
+      destroyUser: function (user){
+        axios.delete(`http://localhost:5000/api/users/${user.id}`)
+        this.users.pop(user)
+        error => alert(error)
+      }
+    }
   }
-}
 </script>
-
-<style>
-#app {
-  font-family: 'Avenir', Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
-}
-</style>
